@@ -8,7 +8,10 @@ from django.utils.encoding import force_bytes, force_str
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
+from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from .serializers import (
     RegisterSerializer,
     PasswordResetRequestSerializer,
@@ -34,7 +37,7 @@ def set_auth_cookies(response: Response, refresh: RefreshToken):
         httponly=True,
         secure=COOKIE_SECURE,
         samesite=COOKIE_SAMESITE,
-        max_age=60 * 60 * 24 * 7,
+        max_age=60 * 60 * 24 * 7, #
         path="/",
     )
 
@@ -148,6 +151,22 @@ class MeView(APIView):
             "first_name": u.first_name,
             "last_name": u.last_name,
         })
+    
+class RefreshView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """
+        Espera: { "refresh": "<refresh_token>" }
+        Retorna: { "access": "<new_access>" } (e às vezes refresh se ROTATE enabled)
+        """
+        serializer = TokenRefreshSerializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            return Response({"detail": "refresh inválido"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 class LogoutView(APIView):
     def post(self, request):

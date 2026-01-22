@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -146,3 +147,10 @@ CORS_ALLOW_CREDENTIALS = True
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "no-reply@caixinha.local" # não existe, mas enfim kkk
+
+SIMPLE_JWT = {
+  "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
+  "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+  "ROTATE_REFRESH_TOKENS": True,
+  "BLACKLIST_AFTER_ROTATION": True,
+}
