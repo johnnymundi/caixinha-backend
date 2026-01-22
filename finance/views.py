@@ -3,6 +3,7 @@ from datetime import date as date_cls
 from decimal import Decimal
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
+from django.db.models import Q
 from django.utils.dateparse import parse_date
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -42,7 +43,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
     ordering_fields = ["name", "created_at"]
 
     def get_queryset(self):
-        return Category.objects.filter(user=self.request.user).order_by("name")
+        return (
+            Category.objects
+            .filter(Q(user__isnull=True) | Q(user=self.request.user))
+            .order_by("name")
+        )
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -50,7 +55,8 @@ class CategoryViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         ''' Se deletar categoria em uma transação, joga para "Outros" '''
         instance = self.get_object()
-        outros, _ = Category.objects.get_or_create(name="Outros")
+    
+        outros, _ = Category.objects.get_or_create(user=None, name="Outros")
 
         # Protegendo a categoria mor 'Outros'
         if instance.name.strip().lower() == "outros":

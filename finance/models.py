@@ -1,6 +1,7 @@
 '''finance/models.py'''
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 
 class Category(models.Model):
     '''
@@ -8,7 +9,8 @@ class Category(models.Model):
     '''
     name = models.CharField(max_length=80, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="categories")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True,
+        blank=True, related_name="categories")
 
     class Meta:
         '''
@@ -16,6 +18,19 @@ class Category(models.Model):
         '''
         ordering = ["name"]
         unique_together = ("user", "name")
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "name"],
+                condition=Q(user__isnull=False),
+                name="uniq_category_per_user",
+            ),
+            models.UniqueConstraint(
+                fields=["name"],
+                condition=Q(user__isnull=True),
+                name="uniq_global_category_name",
+            ),
+        ]
 
     def __str__(self) -> str:
         return self.name

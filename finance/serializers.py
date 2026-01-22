@@ -34,6 +34,11 @@ class TransactionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("O valor deve ser maior que zero.")
         return value
     
+    def validate_name(self, value: str):
+        if value.strip().lower() == "outros":
+            raise serializers.ValidationError("A categoria 'Outros' é reservada.")
+        return value.strip()
+    
     def _get_default_category(self):
         # Garante fallback "Outros"
         cat, _ = Category.objects.get_or_create(name="Outros")
