@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from datetime import date as date_cls
 from decimal import Decimal
 from django.db.models import Sum
@@ -10,6 +9,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.response import Response
+from rest_framework import status
 
 from .models import Category, Transaction
 from .serializers import CategorySerializer, TransactionSerializer
@@ -29,13 +30,33 @@ def parse_month(month_str: str | None) -> tuple[int, int]:
     return d.year, d.month
 
 class CategoryViewSet(viewsets.ModelViewSet):
+    '''
+    Docstring for CategoryViewSet
+    '''
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ["name"]
     ordering_fields = ["name", "created_at"]
 
+    def destroy(self, request, *args, **kwargs):
+        ''' Se deletar categoria em uma transação, joga para "Outros" '''
+        instance = self.get_object()
+        outros, _ = Category.objects.get_or_create(name="Outros")
+
+        # Protegendo a categoria mor 'Outros'
+        if instance.name.strip().lower() == "outros":
+            return Response({"detail": "A categoria 'Outros' não pode ser excluída."}, status=status.HTTP_409_CONFLICT)
+
+        # Joga pra 'Outros' quando a categoria é deletada
+        Transaction.objects.filter(category=instance).update(category=outros)
+
+        return super().destroy(request, *args, **kwargs)
+
 class TransactionViewSet(viewsets.ModelViewSet):
+    '''
+    Docstring for TransactionViewSet
+    '''
     queryset = Transaction.objects.select_related("category").all()
     serializer_class = TransactionSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -44,6 +65,11 @@ class TransactionViewSet(viewsets.ModelViewSet):
     ordering_fields = ["date", "amount", "id", "created_at"]
 
     def get_queryset(self):
+        '''
+        Docstring for get_queryset
+        
+        :param self: Description
+        '''
         qs = super().get_queryset()
         month = self.request.query_params.get("month")  # YYYY-MM
         if month:
@@ -53,6 +79,12 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="recent")
     def recent(self, request):
+        '''
+        Docstring for recent
+        
+        :param self: Description
+        :param request: Description
+        '''
         limit = int(request.query_params.get("limit", "10"))
         qs = self.get_queryset().order_by("-date", "-id")[: max(1, min(limit, 50))]
         data = TransactionSerializer(qs, many=True).data
@@ -60,7 +92,16 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
 
 class SummaryView(APIView):
+    '''
+    Docstring for SummaryView
+    '''
     def get(self, request):
+        '''
+        Docstring for get
+        
+        :param self: Description
+        :param request: Description
+        '''
         month = request.query_params.get("month")  # YYYY-MM
         y, m = parse_month(month)
 

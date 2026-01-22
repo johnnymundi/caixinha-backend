@@ -29,3 +29,27 @@ class TransactionSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("O valor deve ser maior que zero.")
         return value
+    
+    def _get_default_category(self):
+        # Garante fallback "Outros"
+        cat, _ = Category.objects.get_or_create(name="Outros")
+        return cat
+
+    def validate(self, attrs):
+        """
+        Se category vier null (ou não vier), define "Outros".
+        IMPORTANTE: em PATCH, attrs pode não ter 'category', então só aplica fallback
+        quando:
+          - é create (self.instance is None), ou
+          - o cliente explicitamente enviou category=null
+        """
+        if self.instance is None:
+            # CREATE: se não mandou category, ou mandou null => "Outros"
+            if attrs.get("category", None) is None:
+                attrs["category"] = self._get_default_category()
+        else:
+            # UPDATE/PATCH: só troca pra "Outros" se o cliente mandou explicitamente category=null
+            if "category" in attrs and attrs["category"] is None:
+                attrs["category"] = self._get_default_category()
+
+        return attrs
