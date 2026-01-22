@@ -30,4 +30,5 @@ urlpatterns = [
         path("", include(router.urls)),
         path("summary/", SummaryView.as_view(), name="summary"),
     ])),
+    path("api/auth/", include("login.urls")),
 ]

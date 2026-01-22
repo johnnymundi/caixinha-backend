@@ -1,7 +1,9 @@
+'''finance/serializers.py'''
 from rest_framework import serializers
 from .models import Category, Transaction
 
 class CategorySerializer(serializers.ModelSerializer):
+    ''' Category Serializer '''
     class Meta:
         model = Category
         fields = ["id", "name", "created_at"]
@@ -9,6 +11,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class TransactionSerializer(serializers.ModelSerializer):
+    ''' Transaction Serializer '''
     category_name = serializers.CharField(source="category.name", read_only=True)
 
     class Meta:
@@ -26,6 +29,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "category_name"]
 
     def validate_amount(self, value):
+        ''' Valida se o valor é maior que zero '''
         if value <= 0:
             raise serializers.ValidationError("O valor deve ser maior que zero.")
         return value

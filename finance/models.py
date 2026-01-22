@@ -1,3 +1,5 @@
+'''finance/models.py'''
+from django.conf import settings
 from django.db import models
 
 class Category(models.Model):
@@ -6,12 +8,14 @@ class Category(models.Model):
     '''
     name = models.CharField(max_length=80, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="categories")
 
     class Meta:
         '''
         Docstring for Meta
         '''
         ordering = ["name"]
+        unique_together = ("user", "name")
 
     def __str__(self) -> str:
         return self.name
@@ -19,7 +23,7 @@ class Category(models.Model):
 class Transaction(models.Model):
     ''' Model de Transaction'''
     class Type(models.TextChoices):
-        ''' ENUMs '''
+        ''' Types '''
         INCOME = "IN", "Entrada"
         EXPENSE = "OUT", "Saída"
 
@@ -31,6 +35,7 @@ class Transaction(models.Model):
         Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="transactions"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transactions")
 
     class Meta:
         ordering = ["-date", "-id"]

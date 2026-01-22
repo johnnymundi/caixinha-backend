@@ -1,3 +1,4 @@
+'''finance.views'''
 from datetime import date as date_cls
 from decimal import Decimal
 from django.db.models import Sum
@@ -7,10 +8,10 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
-from rest_framework.response import Response
 from rest_framework import status
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.permissions import IsAuthenticated
 
 from .models import Category, Transaction
 from .serializers import CategorySerializer, TransactionSerializer
@@ -33,11 +34,18 @@ class CategoryViewSet(viewsets.ModelViewSet):
     '''
     Docstring for CategoryViewSet
     '''
+    permission_classes = [IsAuthenticated]
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ["name"]
     ordering_fields = ["name", "created_at"]
+
+    def get_queryset(self):
+        return Category.objects.filter(user=self.request.user).order_by("name")
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
         ''' Se deletar categoria em uma transação, joga para "Outros" '''
@@ -49,7 +57,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
             return Response({"detail": "A categoria 'Outros' não pode ser excluída."}, status=status.HTTP_409_CONFLICT)
 
         # Joga pra 'Outros' quando a categoria é deletada
-        Transaction.objects.filter(category=instance).update(category=outros)
+        Transaction.objects.filter(user=request.user,category=instance).update(category=outros)
 
         return super().destroy(request, *args, **kwargs)
 
@@ -57,6 +65,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
     '''
     Docstring for TransactionViewSet
     '''
+    permission_classes = [IsAuthenticated]
     queryset = Transaction.objects.select_related("category").all()
     serializer_class = TransactionSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -70,12 +79,25 @@ class TransactionViewSet(viewsets.ModelViewSet):
         
         :param self: Description
         '''
-        qs = super().get_queryset()
-        month = self.request.query_params.get("month")  # YYYY-MM
+        qs = Transaction.objects.filter(user=self.request.user)
+        month = self.request.query_params.get("month")
         if month:
-            y, m = parse_month(month)
-            qs = qs.filter(date__year=y, date__month=m)
+            # month = "YYYY-MM"
+            year, m = month.split("-")
+            qs = qs.filter(date__year=int(year), date__month=int(m))
+
+        tx_type = self.request.query_params.get("type")
+        if tx_type in ("IN", "OUT"):
+            qs = qs.filter(type=tx_type)
+
+        category = self.request.query_params.get("category")
+        if category and category.isdigit():
+            qs = qs.filter(category_id=int(category))
+
         return qs
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
     @action(detail=False, methods=["get"], url_path="recent")
     def recent(self, request):
@@ -90,34 +112,30 @@ class TransactionViewSet(viewsets.ModelViewSet):
         data = TransactionSerializer(qs, many=True).data
         return Response(data)
 
-
 class SummaryView(APIView):
-    '''
-    Docstring for SummaryView
-    '''
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
-        '''
-        Docstring for get
-        
-        :param self: Description
-        :param request: Description
-        '''
         month = request.query_params.get("month")  # YYYY-MM
         y, m = parse_month(month)
 
-        month_qs = Transaction.objects.filter(date__year=y, date__month=m)
+        base_qs = Transaction.objects.filter(user=request.user)
+
+        month_qs = base_qs.filter(date__year=y, date__month=m)
 
         income = month_qs.filter(type=Transaction.Type.INCOME).aggregate(
             v=Coalesce(Sum("amount"), Decimal("0.00"))
         )["v"]
+
         expense = month_qs.filter(type=Transaction.Type.EXPENSE).aggregate(
             v=Coalesce(Sum("amount"), Decimal("0.00"))
         )["v"]
 
-        total_income = Transaction.objects.filter(type=Transaction.Type.INCOME).aggregate(
+        total_income = base_qs.filter(type=Transaction.Type.INCOME).aggregate(
             v=Coalesce(Sum("amount"), Decimal("0.00"))
         )["v"]
-        total_expense = Transaction.objects.filter(type=Transaction.Type.EXPENSE).aggregate(
+
+        total_expense = base_qs.filter(type=Transaction.Type.EXPENSE).aggregate(
             v=Coalesce(Sum("amount"), Decimal("0.00"))
         )["v"]
 
