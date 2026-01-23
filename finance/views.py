@@ -74,7 +74,6 @@ class TransactionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Transaction.objects.select_related("category").all()
     serializer_class = TransactionSerializer
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["type", "category"]
     search_fields = ["description"]
     ordering_fields = ["date", "amount", "id", "created_at"]
@@ -85,7 +84,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         
         :param self: Description
         '''
-        qs = Transaction.objects.filter(user=self.request.user)
+        qs = Transaction.objects.select_related("category").filter(user=self.request.user)
         month = self.request.query_params.get("month")
         if month:
             # month = "YYYY-MM"

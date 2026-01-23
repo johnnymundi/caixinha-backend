@@ -9,6 +9,12 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ["id", "name", "created_at"]
         read_only_fields = ["id", "created_at"]
 
+    def validate_name(self, value: str):
+        if value.strip().lower() == "outros":
+            raise serializers.ValidationError("A categoria 'Outros' é reservada.")
+        return value.strip()
+    
+    
 
 class TransactionSerializer(serializers.ModelSerializer):
     ''' Transaction Serializer '''
@@ -33,12 +39,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("O valor deve ser maior que zero.")
         return value
-    
-    def validate_name(self, value: str):
-        if value.strip().lower() == "outros":
-            raise serializers.ValidationError("A categoria 'Outros' é reservada.")
-        return value.strip()
-    
+
     def _get_default_category(self):
         # Garante fallback "Outros"
         cat, _ = Category.objects.get_or_create(name="Outros")

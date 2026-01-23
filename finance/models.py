@@ -7,7 +7,7 @@ class Category(models.Model):
     '''
     Model de categoria da caixinha
     '''
-    name = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=80)
     created_at = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True,
         blank=True, related_name="categories")
@@ -24,11 +24,6 @@ class Category(models.Model):
                 fields=["user", "name"],
                 condition=Q(user__isnull=False),
                 name="uniq_category_per_user",
-            ),
-            models.UniqueConstraint(
-                fields=["name"],
-                condition=Q(user__isnull=True),
-                name="uniq_global_category_name",
             ),
         ]
 
@@ -50,7 +45,7 @@ class Transaction(models.Model):
         Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="transactions"
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transactions")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="transactions")
 
     class Meta:
         ordering = ["-date", "-id"]
